@@ -1,0 +1,17 @@
+header{
+    display: flex;
+    background-color:#989898;
+    position:sticky;
+    top:0px;
+    align-items: center;
+    justify-content: center;
+    height:100px;
+    font-family: 'Franklin Gothic Medium',sans-serif;
+}
+
+/*
+for some reason, there is a child of header, lord knows where, thats fucking up the margin.
+*/
+header *{
+    margin:0;
+}
