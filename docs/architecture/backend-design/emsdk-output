@@ -1,0 +1,1 @@
+one c++ file for each sim, emsdk outputs js and wasm file when compiling, copy compiled files to public in frontend,
