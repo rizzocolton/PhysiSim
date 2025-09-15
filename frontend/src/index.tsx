@@ -1,15 +1,28 @@
+//function imports
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import './index.css';
+import { createBrowserRouter, RouterProvider } from 'react-router-dom';
+//component imports
 import App from './App';
+import Kinematics from './Simulators/Kinematics';
+import NotFound from "./NotFound";
 import reportWebVitals from './reportWebVitals';
+import './index.css';
+
+const router=createBrowserRouter([
+  {path: "/", element: <App />},
+  {path: "/kinematics", element: <Kinematics/>},
+  {path: '/*', element: <NotFound/>}
+]);
+
 
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement
 );
+
 root.render(
   <React.StrictMode>
-    <App />
+  <RouterProvider router={router} />
   </React.StrictMode>
 );
 
