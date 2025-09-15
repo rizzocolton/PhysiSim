@@ -8,7 +8,7 @@ import physiSimLogo from './assets/physisimlogo.png';
 function App() {
   return(
     <>
-      <Header/>
+      <Header title="PhysiSim: An Interactive Physics Simulator"/>
       <Card ref="/kinematics" img={physiSimLogo} title="Kinematics" desc="A simple single object simulation of projectile motion in a uniform gravitational field"/>
 
     </>
