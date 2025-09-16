@@ -34,13 +34,11 @@ function Kinematics(){
         
         if (typeof moduleOrPromise === 'function') {
           moduleOrPromise().then((module: any) => {
-            console.log("Module keys:", Object.keys(module));
             (window as any).wasmModule = module;
             setWasmReady(true);
           });
         } else {
           // Module is already ready
-          console.log("Module keys:", Object.keys(moduleOrPromise));
           (window as any).wasmModule = moduleOrPromise;
           setWasmReady(true);
         }
@@ -76,7 +74,6 @@ function Kinematics(){
     const newState=wasm.stepSimulation(1/120);
 
     //continue loop if valid
-    console.log(newState.shouldContinue);
     if(newState.shouldContinue){
       console.log("new state was valid");
       setState(newState);
@@ -96,7 +93,6 @@ function Kinematics(){
     const wasm=(window as any).wasmModule;
 
     //initialize c++ with current params
-    console.log("calling to C++!");
     wasm.initializeSimulation(state.x,state.y,state.vx,state.vy,state.ay);
 
     //set simulation loop off
@@ -118,15 +114,19 @@ function Kinematics(){
     const ctx=canvas.getContext('2d');
 
     //canvas reset
-    ctx.fillStyle='white';
+    ctx.fillStyle='black';
     ctx.clearRect(0,0,canvas.width,canvas.height);
-    
-
+  
     //draw object
-    ctx.beginPath();
+    let r=50;
     let floorHeight=100;
-    let r=10;
-    ctx.arc(state.x+r/2,canvas.height-floorHeight-state.y-r/2,r,0,2*Math.PI);
+    console.log("drawing object");
+    ctx.fillStyle = 'red';
+    ctx.beginPath();
+    ctx.arc(state.x + 3*r, canvas.height - floorHeight - state.y  - r, r, 0, 2*Math.PI);
+    ctx.fill();
+    ctx.strokeStyle = 'black';
+    ctx.lineWidth = 2;
     ctx.stroke();
   };
 
