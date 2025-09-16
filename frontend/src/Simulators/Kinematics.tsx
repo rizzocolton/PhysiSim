@@ -1,10 +1,62 @@
+import {useEffect,useState, useRef} from 'react';
 import Header from '../Header/Header';
-import {useEffect,useState} from 'react';
+import styles from './Simulator.module.css';
 
 function Kinematics(){
-  return(
-    <Header title="Kinematics"/>
+  //constants
+  const FIXED_TIME_STEP=1/120;
+
+  //reference for react to modify component once its mounted
+  const canvasRef=useRef(null);
+  let simRunning=false;
+
+  //state object,
+  const [State,setState]=useState({
+    params: 0
+  });
+  
+  //canvas setup, runs when mounted
+  useEffect(()=>{
+    const canvas=canvasRef.current;
+    //if canvas isn't setup yet, just exit function
+    if(!canvas) return;
+    canvas.width=1000;
+    canvas.height=500;
+    //setup initial scene
+    render();
+  },[]);
+
+  //canvas update function, runs whenever state changes
+  useEffect(()=>{
+    render();
+  },[State]);
+
+  function render(){
+    const canvas=canvasRef.current;
+    if(!canvas) return;
     
+    const ctx=canvas.getContext('2d');
+
+    //canvas reset
+    ctx.fillStyle='white';
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+
+    //draw ground
+    ctx.strokeStyle='black';
+    ctx.lineWIdth=3;
+    ctx.beginPath();
+    ctx.moveTo(0,450);
+    ctx.lineTo(canvas.width,450);
+    ctx.stroke();
+  }
+
+  return(
+    <>
+    <Header title="Kinematics"/>
+    <div className={styles.canvasContainer}>
+      <canvas ref={canvasRef} className={styles.canvas}/>
+    </div>
+    </>
   );
 }
 
