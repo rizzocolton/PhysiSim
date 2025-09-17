@@ -12,7 +12,7 @@ function Kinematics(){
 
   //state object, contains simulation starting parameters
   const [state,setState]=useState({
-    x:0,y:1,vx:0,vy:0,ax:0,ay:0,shouldContinue:true
+    x:0,y:0,vx:10,vy:40,ax:0,ay:-9.8,shouldContinue:true
   });
   
   //wasm setup, runs when mounted, ai generated because every other setup was giving errors
@@ -65,25 +65,30 @@ function Kinematics(){
 
   //simulation loop, runs while dependencies are true
   const simulationLoop=useCallback(()=>{
-    console.log("in sim loop");
-
     const wasm=(window as any).wasmModule;
 
-    //call c++ to compute next state
-    console.log("calling C++ in simulation loop!");
-    const newState=wasm.stepSimulation(1/120);
+    let lastTime=performance.now();
+    let timeSince=0;
+    const dt=1/30;
 
-    //continue loop if valid
-    if(newState.shouldContinue){
-      console.log("new state was valid");
-      setState(newState);
-      setTimeout(()=>{
-        animationRef.current=requestAnimationFrame(simulationLoop)
-      },1000/120)
-    }else{
-      setRunning(false);
-      console.log("Simulation stopped");
+    function frame(now:number){
+      let realDt=(now-lastTime)/1000;
+      lastTime=now;
+      timeSince+=realDt;
+
+      while (timeSince >= dt) {
+        const newState = wasm.stepSimulation(dt); // call C++
+        timeSince -= dt;
+        if (!newState.shouldContinue) {
+          setRunning(false);
+          console.log("Simulation stopped");
+          return;
+        }
+       setState(newState);
+      }
+     requestAnimationFrame(frame);
     }
+    frame(lastTime);
   },[wasmReady,running]);
 
   //start simulation button handler
@@ -117,13 +122,16 @@ function Kinematics(){
     ctx.fillStyle='black';
     ctx.clearRect(0,0,canvas.width,canvas.height);
   
-    //draw object
-    let r=50;
+    //draw floor
+    ctx.fillStyle='grey';
     let floorHeight=100;
-    console.log("drawing object");
+    ctx.fillRect(0,canvas.height-100,canvas.width,100);
+    //draw object
+    let r=5
     ctx.fillStyle = 'red';
     ctx.beginPath();
-    ctx.arc(state.x + 3*r, canvas.height - floorHeight - state.y  - r, r, 0, 2*Math.PI);
+    ctx.arc(state.x + 3*r, canvas.height - 100 - state.y  - r, r, 0, 2*Math.PI);
+    console.log("Drawing at:",state.x + 3*r, canvas.height - 100 - state.y);
     ctx.fill();
     ctx.strokeStyle = 'black';
     ctx.lineWidth = 2;
