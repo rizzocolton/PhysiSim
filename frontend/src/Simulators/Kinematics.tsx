@@ -1,212 +1,126 @@
-import {useEffect,useState, useRef, useCallback} from 'react';
+import {useEffect,useState, useRef, useCallback, use} from 'react';
 import Header from '../Header/Header';
 import styles from './Simulator.module.css';
+import * as kinTypes from '../types';
+
+const firstState:kinTypes.kinematicsState={
+    simObject:{
+        pos:{
+            x:0,
+            y:0
+        },
+        vel:{
+            x:0,
+            y:0
+        },
+        acc:{
+            x:0,
+            y:-9.8
+        },
+        r:1,
+    },
+    gravity:-9.8,
+    time:0,
+    shouldContinue:false
+}
+
+const defaultBoundaries:kinTypes.simulationBounds={
+    sF:5,
+    widthP:1000,
+    heightP:500,
+    floorHeight:100
+}
+
+
 
 function Kinematics(){
-  //reference for react to modify component once its mounted
-  const canvasRef=useRef(null);
-  const animationRef=useRef(null);
+    //initialize the state of the simulation with a default
+    const[State,setState]=useState(firstState);
 
-  const [wasmReady, setWasmReady] = useState(false);
-  const [running, setRunning] = useState(false);
+    //References to canvas and animation state, bypasses Reacts virtual dom and prevents re-rendering and such
 
-  //state object, contains simulation starting parameters
-  const [state,setState]=useState({
-    x:0,y:0,vx:10,vy:40,ax:0,ay:-9.8,shouldContinue:true
-  });
-  
-  //wasm setup, runs when mounted, ai generated because every other setup was giving errors
-    useEffect(()=>{
-    // Check if script already exists
-    if (document.querySelector('script[src="/kinematics.js"]')) {
-      if ((window as any).wasmModule) {
-        setWasmReady(true);
-      }
-      return;
-    }
+    const canvasRef=useRef<HTMLCanvasElement>(null);
+    const animationRef=useRef<number|null>(null);
 
-    const script = document.createElement('script');
-    script.src = '/kinematics.js';
-    script.onload = () => {
-      // Try both patterns
-      if ((window as any).Module) {
-        const moduleOrPromise = (window as any).Module;
-        
-        if (typeof moduleOrPromise === 'function') {
-          moduleOrPromise().then((module: any) => {
-            (window as any).wasmModule = module;
-            setWasmReady(true);
-          });
-        } else {
-          // Module is already ready
-          (window as any).wasmModule = moduleOrPromise;
-          setWasmReady(true);
-        }
-      }
-    };
-    document.head.appendChild(script);
-  },[]);
-
-  //canvas setup, runs when mounted
-  useEffect(()=>{
-    const canvas=canvasRef.current;
-    //if canvas isn't setup yet, just exit function
-    if(!canvas) return;
-    canvas.width=1000;
-    canvas.height=500;
-    //setup initial scene
-    render();
-  },[]);
-
-  //canvas draw call, runs whenever state changes
-  useEffect(()=>{
-    render();
-  },[state]);
-
-  //simulation loop, runs while dependencies are true
-  const simulationLoop=useCallback(()=>{
-    const wasm=(window as any).wasmModule;
-
-    let lastTime=performance.now();
-    let timeSince=0;
-    const dt=1/30;
-
-    function frame(now:number){
-      let realDt=(now-lastTime)/1000;
-      lastTime=now;
-      timeSince+=realDt;
-
-      while (timeSince >= dt) {
-        const newState = wasm.stepSimulation(dt); // call C++
-        timeSince -= dt;
-        if (!newState.shouldContinue) {
-          setRunning(false);
-          console.log("Simulation stopped");
-          return;
-        }
-       setState(newState);
-      }
-     requestAnimationFrame(frame);
-    }
-    frame(lastTime);
-  },[wasmReady,running]);
-
-  //start simulation button handler
-  const startSimulation=()=>{
-    if(!wasmReady)return;
-
-    const wasm=(window as any).wasmModule;
-
-    //initialize c++ with current params
-    wasm.initializeSimulation(state.x,state.y,state.vx,state.vy,state.ay);
-
-    //set simulation loop off
-    setRunning(true);
-    simulationLoop();
-  };
-
-  const stopSimulation=()=>{
-    setRunning(false);
-    if (animationRef.current) {
-      cancelAnimationFrame(animationRef.current);
-    }
-  };
-
-  function render(){
-    const canvas=canvasRef.current;
-    if(!canvas) return;
+    //stateful variables for whether or not wasm is ready and the sim is running
+    const [wasmReady, setWasmReady] = useState(false);
+    const [running, setRunning] = useState(false);
     
-    const ctx=canvas.getContext('2d');
+    /*
+    The following sets up the wasm module to interact with C++ as soon as this module is mounted, 
+    it is ai generated as all other implementations I've tried simply were not working, 
+    perhaps it's something to do with strictMode "double mounting" this useEffect hook.
+    Regardless the general principle of this hook is to get the wasm module funcitonal, it's looking to add the js wrapper file
+    created by the Emscripten which would then load the wasm file with the binary code. It then sets up some shared memory
+    and creates js functions that can call C++ functions
+    */
+    useEffect(()=>{
+        //check if script was already loaded to avoid duplicates
+        if(document.querySelector('script[src="/kinematics.js"]')){
+            if((window as any).wasmModule){
+                setWasmReady(true);
+            }
+        }
 
-    //canvas reset
-    ctx.fillStyle='black';
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-  
-    //draw floor
-    ctx.fillStyle='grey';
-    let floorHeight=100;
-    ctx.fillRect(0,canvas.height-100,canvas.width,100);
-    //draw object
-    let r=5
-    ctx.fillStyle = 'red';
-    ctx.beginPath();
-    ctx.arc(state.x + 3*r, canvas.height - 100 - state.y  - r, r, 0, 2*Math.PI);
-    console.log("Drawing at:",state.x + 3*r, canvas.height - 100 - state.y);
-    ctx.fill();
-    ctx.strokeStyle = 'black';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-  };
+        const script=document.createElement('script');
+        script.src='/kinematics.js'; //that emscripten wrapper file located in public directory
 
-  return(
-    <>
-    <Header title="Kinematics"/>
-    <div className={styles.canvasContainer}>
-      <canvas ref={canvasRef} className={styles.canvas}/>
-    </div>
-      <button onClick={startSimulation} disabled={!wasmReady||running}>
-        Start Simulation
-      </button>
-      <button onClick={stopSimulation} disabled={!running}>
-        Stop Simulation
-      </button>
-    </>
-  );
+        script.onload=()=>{
+            if((window as any).Module){
+                const moduleOrPromise=(window as any).Module;
+                // Emscripten can expose Module as:
+                // - Direct object (immediately ready)
+                // - Factory function returning Promise (async initialization)
+                if (typeof moduleOrPromise === 'function') {
+                     // Async: wait for WASM compilation and memory setup
+                     moduleOrPromise().then((module: any) => {
+                     (window as any).wasmModule = module;
+                     setWasmReady(true);
+                     });
+                }else{
+                     // Sync: Module already initialized
+                     (window as any).wasmModule = moduleOrPromise;
+                     setWasmReady(true);
+                }
+            }
+        };
+        document.head.appendChild(script);
+    },[])
+
+    //Canvas setup
+    useEffect(()=>{
+        //this canvas constant is pointing to the canvas element created on screen
+        const canvas=canvasRef.current;
+        if(!canvas){
+            return;
+        }
+        canvas.width=defaultBoundaries.widthP;
+        canvas.height=defaultBoundaries.heightP;
+        //draws the initial state
+        render();
+    },[])
+
+    //re-renders whenever simulation state changes
+    useEffect(()=>{
+        render();
+    },[State])
+
+    const simulationLoop=useCallback(()=>{
+        if(!wasmReady){
+            console.warn("wasm is not ready");
+            return;
+        }
+        //useable accessor to c++ functions
+        const wasm=(window as any).wasmModule as kinTypes.kinematicsWASM;
+        
+        //makes sure simulation runs accurately despite variations in framerate
+        let lastTime=performance.now();
+        let timeSince=0;
+        const dt=1/120;
+
+    },[wasmReady,running])
+
+
 }
 
 export default Kinematics;
-
-/* 
-The code below works, but its AI generated and I want to understand it first.
-
-
-
-const [wasmReady,setWasmReady]=useState(false);
-
-  useEffect(()=>{
-    // Check if script already exists
-    if (document.querySelector('script[src="/hello.js"]')) {
-      if ((window as any).wasmModule) {
-        setWasmReady(true);
-      }
-      return;
-    }
-
-    const script = document.createElement('script');
-    script.src = '/hello.js';
-    script.onload = () => {
-      // Try both patterns
-      if ((window as any).Module) {
-        const moduleOrPromise = (window as any).Module;
-        
-        if (typeof moduleOrPromise === 'function') {
-          moduleOrPromise().then((module: any) => {
-            console.log("Module keys:", Object.keys(module));
-            (window as any).wasmModule = module;
-            setWasmReady(true);
-          });
-        } else {
-          // Module is already ready
-          console.log("Module keys:", Object.keys(moduleOrPromise));
-          (window as any).wasmModule = moduleOrPromise;
-          setWasmReady(true);
-        }
-      }
-    };
-    document.head.appendChild(script);
-  },[]);
-
-  function clickHandler(){
-    if(wasmReady){
-      console.log("Button clicked -calling C++");
-      (window as any).wasmModule.sayHello();
-    }
-  }
-   return(
-        <>
-        <Header/>
-        
-        <button onClick={clickHandler} disabled={!wasmReady}>TEST BUTTON</button>
-        </>
-    );
-*/
